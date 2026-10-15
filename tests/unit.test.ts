@@ -56,7 +56,7 @@ describe('통계는 실제 표본만 집계한다', () => {
     const c = aggregate([base, { ...base, id: 'b' }, { ...base, id: 'c', dryness: 5 }])
     expect(c).toHaveLength(2)
     expect(summarize(c).average).toBeCloseTo(11 / 3)
-    expect(summarize(c).colors[0].count).toBe(3)
+    expect(summarize(c).colors.find((x) => x.id === 'yellow')?.count).toBe(3)
     expect(dailySeries(c)[0].count).toBe(3)
   })
   it('날짜와 지역별로 분리한다', () => {

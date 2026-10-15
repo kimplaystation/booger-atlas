@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import {
   ArrowDown,
   ArrowRight,
@@ -16,6 +16,9 @@ import WorldMap, { countryName } from './components/WorldMap'
 import RegionPicker from './components/RegionPicker'
 import { DateFilters, Distribution } from './components/DataViews'
 import RecordPage from './pages/RecordPage'
+import HomePage from './pages/HomePage'
+import CertificateView from './components/CertificateView'
+import { decodeCertificate, LAST_CERTIFICATE } from './lib/certificate'
 import AnalysisPage from './pages/AnalysisPage'
 import { CONFIG_ERROR, DEMO, loadDataset, resetDemo } from './lib/api'
 import {
@@ -27,13 +30,27 @@ import {
   validateFilters,
 } from './lib/domain'
 import type { Dataset, Filters, Region } from './lib/domain'
-type Page = 'map' | 'record' | 'analysis'
+const FieldPage = lazy(() => import('./pages/FieldPage'))
+const SpecimenPage = lazy(() => import('./pages/SpecimenPage'))
+const FieldAtlas = lazy(() => import('./components/FieldAtlas'))
+type Page = 'home' | 'map' | 'record' | 'analysis' | 'certificate' | 'field' | 'specimen'
 function pageFromHash(): Page {
   const p = location.hash.slice(1)
-  return p === 'record' || p === 'analysis' ? p : 'map'
+  if (p.startsWith('specimen=')) return 'specimen'
+  if (p === 'field') return 'field'
+  return p.startsWith('certificate=')
+    ? 'certificate'
+    : p === 'record' || p === 'analysis' || p === 'map'
+      ? p
+      : 'home'
 }
 function App() {
   const [page, setPage] = useState<Page>(pageFromHash),
+    [certificateToken, setCertificateToken] = useState(() =>
+      location.hash.slice('#certificate='.length),
+    ),
+    [specimenId, setSpecimenId] = useState(() => location.hash.slice('#specimen='.length)),
+    [examKey, setExamKey] = useState(0),
     [selected, setSelected] = useState<Region | null>(null),
     [country, setCountry] = useState<string | null>(null)
   const [data, setData] = useState<Dataset>({ regions: SEED_REGIONS, cells: [] }),
@@ -53,16 +70,28 @@ function App() {
     }
   }, [])
   useEffect(() => {
-    void reload()
-  }, [reload])
+    if (page === 'map' || page === 'analysis') void reload()
+  }, [reload, page])
   useEffect(() => {
     const handler = () => {
       setPage(pageFromHash())
+      setCertificateToken(location.hash.slice('#certificate='.length))
+      setSpecimenId(location.hash.slice('#specimen='.length))
       window.scrollTo({ top: 0 })
     }
     window.addEventListener('hashchange', handler)
     return () => window.removeEventListener('hashchange', handler)
   }, [])
+  function startExam() {
+    try {
+      sessionStorage.removeItem(LAST_CERTIFICATE)
+    } catch {
+      /* Optional history */
+    }
+    setExamKey((k) => k + 1)
+    navigate('record')
+  }
+  const sharedCertificate = page === 'certificate' ? decodeCertificate(certificateToken) : null
   function navigate(p: Page) {
     location.hash = p
     setPage(p)
@@ -102,7 +131,7 @@ function App() {
         <span className="edition">CITIZEN SCIENCE PROJECT · VOL. 01</span>
       </div>
       <header className="site-header">
-        <a className="brand" href="#map" aria-label="BOOGER ATLAS 홈">
+        <a className="brand" href="#home" aria-label="BOOGER ATLAS 홈">
           <span className="brand-symbol">
             <Globe2 size={31} strokeWidth={1.3} />
             <i />
@@ -115,6 +144,12 @@ function App() {
           </span>
         </a>
         <nav aria-label="주 메뉴">
+          <a href="#field" className={page === 'field' ? 'active' : ''}>
+            GPS 놀이
+          </a>
+          <a href="#home" className={page === 'home' ? 'active' : ''}>
+            감정소
+          </a>
           <a href="#map" className={page === 'map' ? 'active' : ''}>
             <Globe2 size={16} />
             관측 지도
@@ -123,14 +158,21 @@ function App() {
             <BarChart3 size={16} />
             지역 분석
           </a>
-          <a href="#record" className={`nav-record ${page === 'record' ? 'active' : ''}`}>
+          <a
+            href="#record"
+            onClick={(e) => {
+              e.preventDefault()
+              startExam()
+            }}
+            className={`nav-record ${page === 'record' ? 'active' : ''}`}
+          >
             <Plus size={16} />
             표본 등록
           </a>
         </nav>
       </header>
       <main>
-        {(error || CONFIG_ERROR) && (
+        {((error && (page === 'map' || page === 'analysis')) || CONFIG_ERROR) && (
           <div className="error-banner" role="alert">
             <Info size={18} />
             <span>{CONFIG_ERROR || error}</span>
@@ -149,6 +191,45 @@ function App() {
             )}
           </div>
         )}
+        {page === 'home' && (
+          <HomePage
+            onStart={startExam}
+            onPlay={() => navigate('field')}
+            onExplore={() => navigate('map')}
+          />
+        )}
+        {page === 'field' && (
+          <Suspense fallback={<p role="status">GPS 놀이 준비 중…</p>}>
+            <FieldPage
+              onRecord={startExam}
+              onDetail={(id) => {
+                location.hash = `specimen=${id}`
+              }}
+            />
+          </Suspense>
+        )}
+        {page === 'specimen' && (
+          <Suspense fallback={<p role="status">표본 준비 중…</p>}>
+            <SpecimenPage id={specimenId} />
+          </Suspense>
+        )}
+        {page === 'certificate' &&
+          (sharedCertificate ? (
+            <CertificateView
+              certificate={sharedCertificate}
+              shared
+              onStart={startExam}
+              onMap={() => navigate('map')}
+            />
+          ) : (
+            <section className="panel invalid-certificate">
+              <h1>감정서 링크를 확인해 주세요.</h1>
+              <p>링크가 잘렸거나 지원하지 않는 내용입니다. 친구에게 전체 링크를 다시 받아주세요.</p>
+              <button className="primary" onClick={startExam}>
+                내 코딱지 검사 시작
+              </button>
+            </section>
+          ))}
         {page === 'map' && (
           <>
             <section className="hero">
@@ -167,7 +248,7 @@ function App() {
                   세계 곳곳의 작은 표본을 모아, 지역과 날씨의 관계를 관측합니다.
                 </p>
               </div>
-              <button className="primary hero-cta" onClick={() => navigate('record')}>
+              <button className="primary hero-cta" onClick={startExam}>
                 <Plus size={18} />
                 나의 표본 등록하기
                 <ArrowRight size={17} />
@@ -343,6 +424,9 @@ function App() {
                 <span>경계: Natural Earth · 검색: © OpenStreetMap 기여자</span>
               </div>
             </section>
+            <Suspense fallback={<p>GPS 표본 지도 준비 중…</p>}>
+              <FieldAtlas />
+            </Suspense>
             <section className="mission-grid">
               <article>
                 <span className="mission-number">01 / COLLECT</span>
@@ -352,7 +436,7 @@ function App() {
                   <br />
                   세계 코딱지 관측에 참여하세요.
                 </p>
-                <button className="text-button" onClick={() => navigate('record')}>
+                <button className="text-button" onClick={startExam}>
                   첫 표본 등록하기
                   <ArrowRight size={15} />
                 </button>
@@ -382,6 +466,8 @@ function App() {
         )}
         {page === 'record' && (
           <RecordPage
+            key={examKey}
+            onHome={() => navigate('home')}
             selected={selected}
             onSelect={select}
             onComplete={async () => {
@@ -401,7 +487,7 @@ function App() {
             data={data}
             filters={filters}
             setFilters={setFilters}
-            onRecord={() => navigate('record')}
+            onRecord={startExam}
           />
         )}
       </main>
@@ -410,7 +496,7 @@ function App() {
           <strong>BOOGER ATLAS</strong>
           <span>세계 코딱지 지질조사국</span>
         </div>
-        <p>작은 표본, 진지한 관측. 시민과 함께 만드는 열린 지도.</p>
+        <p>아주 작은 발견에, 쓸데없이 진지한 감정서.</p>
         <span>© {new Date().getFullYear()} BOOGER ATLAS</span>
       </footer>
     </>

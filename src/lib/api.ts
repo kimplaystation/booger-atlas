@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { readFieldDemo } from './fieldDemo'
+import { FIELD_STORE } from '../../supabase/functions/_shared/field'
 import {
   aggregate,
   canonicalRegion,
@@ -94,10 +96,28 @@ function writeDemo(data: DemoStore) {
 export async function loadDataset(): Promise<Dataset> {
   if (!DEMO) return invoke<Dataset>('stats')
   const data = readDemo()
-  return { regions: data.regions, cells: aggregate(data.observations) }
+  const field = readFieldDemo().specimens
+  const regions = [
+    ...new Map([...data.regions, ...field.map((s) => s.region)].map((r) => [r.id, r])).values(),
+  ]
+  const observations = [
+    ...data.observations,
+    ...field
+      .filter((s) => !data.observations.some((o) => o.id === s.id))
+      .map((s) => ({
+        id: s.id,
+        regionId: s.region.id,
+        date: localDate(new Date(s.createdAt)),
+        color: s.color,
+        size: s.size,
+        dryness: s.initialDryness,
+      })),
+  ]
+  return { regions, cells: aggregate(observations) }
 }
 export function resetDemo() {
   localStorage.removeItem(STORE_KEY)
+  localStorage.removeItem(FIELD_STORE)
 }
 export async function saveObservation(
   observation: Observation,

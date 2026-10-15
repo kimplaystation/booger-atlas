@@ -12,7 +12,13 @@ export default defineConfig({
       executablePath:
         process.env.CHROMIUM_PATH ||
         (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined),
-      args: ['--no-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+        '--use-angle=swiftshader',
+        '--enable-unsafe-swiftshader',
+      ],
     },
     trace: 'retain-on-failure',
   },

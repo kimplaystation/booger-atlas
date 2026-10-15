@@ -1,8 +1,12 @@
 # BOOGER ATLAS · 세계 코딱지 지질조사국
 
-작은 표본을 진지하게 관측하는 한국어 시민 참여 웹앱입니다. React + TypeScript + Vite, Tailwind CSS, Leaflet, Recharts, Supabase, Open-Meteo로 구현했습니다.
+GPS로 코딱지를 튕기고 같은 지역에서 발견하는 한국어 모바일 웹앱입니다. 기존 지역 기록·세계지도·기상 분석과 재미용 감정서도 유지합니다. React + TypeScript + Vite, Tailwind, Leaflet, Three.js, Recharts, Supabase, Open-Meteo를 사용합니다.
 
-**계정이나 API 키 없이 바로 실행할 수 있습니다.** 설정이 없으면 데모 모드가 켜지고, 기록은 해당 브라우저에만 저장됩니다. 실제 공동 수집은 본인의 Supabase 프로젝트를 연결한 뒤 시작합니다. 가상의 표본이나 통계는 초기 데이터에 포함하지 않았습니다.
+**계정·키 없이 로컬 데모로 실행할 수 있습니다.** 공동 저장과 서버 날씨 변화는 Supabase 설정 후 가능합니다. 데이터가 없는 곳에 표본이나 통계를 만들어 표시하지 않습니다.
+
+**최신 GPS 놀이 실행·공동 저장·서버 스케줄러·iPhone 테스트 안내 → [GPS-AR.md](GPS-AR.md)**
+
+VPS·Cloud Anchor·네이티브 앱은 사용하지 않습니다. 카메라 오버레이는 가상 바닥 연출이며, 지원 기기의 WebXR 평면 인식도 현재 세션에만 사용합니다. GPS만으로 정확한 착탄점이나 동일 표면을 복원했다고 표시하지 않습니다.
 
 ## 1. 가장 빠른 실행
 
@@ -15,6 +19,8 @@ npm run dev
 
 터미널이 알려주는 로컬 주소를 브라우저에서 열면 됩니다. 환경변수 설정은 필요하지 않습니다. 개발 서버는 고정된 기상·지역 API에만 프록시를 제공하여 CORS와 클라우드 네트워크 환경을 처리합니다. Node.js 24.5 이상에서는 기존 HTTPS_PROXY 및 신뢰 CA 설정도 사용하며, TLS 검증을 끄지 않습니다. 빌드된 데모는 공개 HTTPS API, 실제 수집 모드는 Supabase Edge Function을 사용합니다.
 
+- **GPS 놀이**: 카메라·스와이프·GPS 저장·기본 30m 근처 발견·생애 링크
+- **감정소**: 3단계 검사·결정적 이름·감정서 PNG 다운로드·내용 공유 링크
 - **관측 지도**: 세계 경계 지도, 지역 검색, 국가·지역별 실제 집계, 날짜 필터
 - **표본 등록**: 지역·날짜·색상·크기·건조도 입력, 선택적인 GPS
 - **지역 분석**: 색상·크기 분포, 날짜별 건조도·날씨 그래프, 오늘·내일 기상예보, 두 지역 비교
@@ -28,7 +34,7 @@ npm run dev
 ### A. Supabase 프로젝트와 데이터베이스
 
 1. [Supabase](https://supabase.com/)에서 계정과 프로젝트를 만듭니다.
-2. SQL Editor에서 `supabase/migrations/202610150001_atlas.sql` 전체를 한 번 실행합니다.
+2. SQL Editor에서 `supabase/migrations/202610150001_atlas.sql`, `supabase/migrations/202610150002_field.sql`을 순서대로 한 번씩 실행합니다. 이미 초기 마이그레이션을 적용했다면 두 번째만 추가합니다.
 3. 프로젝트의 URL과 **공개 publishable 또는 legacy anon 키**를 확인합니다. `service_role` / secret 키는 브라우저에 절대 넣지 않습니다.
 
 마이그레이션은 지역 5곳의 메타데이터만 추가합니다. 사용자 표본은 0개로 시작합니다. 원본 표본 테이블에는 RLS가 적용되어 익명 사용자의 직접 조회·삽입·수정·삭제가 모두 차단됩니다. Edge Function만 서버 권한으로 검증·저장·집계합니다.
@@ -56,6 +62,7 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 npx supabase secrets set --env-file supabase/functions/.env.local
 npx supabase functions deploy atlas --no-verify-jwt
+npx supabase functions deploy field --no-verify-jwt
 ```
 
 `SUPABASE_URL`과 `SUPABASE_SERVICE_ROLE_KEY`는 배포된 Supabase 함수에 기본 제공되는 서버 환경변수입니다. 프런트엔드 `.env`에 복사하지 않습니다. 인증 없는 시민 등록을 위해 JWT 검증을 끄고, 함수 안에서 입력 검증·요청 제한·허용 Origin 검사를 수행합니다. CORS 자체는 봇 인증 장치가 아닙니다.
@@ -93,6 +100,8 @@ npm run preview
 
 ## 4. 지역 데이터와 개인정보
 
+아래 행정구역 정책은 기존 관측 기록에 적용됩니다. GPS 놀이에는 사용자가 동의한 약 20m 단위 위치를 별도 비공개 테이블에 저장하며, 공개 지도는 기본 비공개·선택 시 약 500m 단위입니다. 세부 정책은 [GPS-AR.md](GPS-AR.md#위치정보-보호)를 참고하세요.
+
 - 한국은 시·군·구급 경계만 선택할 수 있습니다. `동`·상세주소·가게 등은 검색 결과에서 제외합니다.
 - 한국 공식 법정동 시군구 코드가 제공되면 `kr:legal:11680` 같은 ID를 사용하고, 그 외에는 `osm:relation:7444` 같은 안정적인 OpenStreetMap relation ID를 사용합니다.
 - 강남구·마포구·종로구·해운대구·제주시는 실제 행정코드를 사용하는 기본 지역입니다. **지역이 존재한다는 의미이지 관측 표본이 있다는 의미가 아닙니다.**
@@ -129,15 +138,17 @@ npm run preview
 
 ## 6. 데이터 구조와 보안
 
-| 테이블                | 용도                                                              |
-| --------------------- | ----------------------------------------------------------------- |
-| `atlas_regions`       | 고유 지역 ID, 이름, 국가·상위 지역, 행정 대표 좌표, 출처          |
-| `atlas_observations`  | 비공개 원본 표본. 임의 UUID, 지역 ID, 발견 날짜, 색상·크기·건조도 |
-| `atlas_api_cache`     | 날씨·지역 검색 캐시                                               |
-| `atlas_rate_limits`   | 원본 IP를 남기지 않는 요청 제한용 해시·횟수·만료시각              |
-| `atlas_service_slots` | Nominatim 전체 요청 간격 조정                                     |
+| 테이블                  | 용도                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `atlas_regions`         | 고유 지역 ID, 이름, 국가·상위 지역, 행정 대표 좌표, 출처          |
+| `atlas_observations`    | 비공개 원본 표본. 임의 UUID, 지역 ID, 발견 날짜, 색상·크기·건조도 |
+| `atlas_api_cache`       | 날씨·지역 검색 캐시                                               |
+| `atlas_rate_limits`     | 원본 IP를 남기지 않는 요청 제한용 해시·횟수·만료시각              |
+| `atlas_service_slots`   | Nominatim 전체 요청 간격 조정                                     |
+| `atlas_field_specimens` | 비공개 GPS 게임 상태·약 20m 초기 위치·처리 버전                   |
+| `atlas_field_events`    | 소멸 후에도 보존하는 생애·가상 이동·기상 입력 이력                |
 
-공개 API는 `atlas` Edge Function 한 개입니다. `stats` 응답은 지역·날짜·특징별 **집계 count**이며 원본 표본 ID·등록 시각·IP 해시는 반환하지 않습니다. 사용자 식별정보를 수집하지 않으므로 1건만 있는 지역도 지역 통계로 표시할 수 있습니다.
+기존 기록 API는 `atlas`, GPS 놀이 API는 `field` Edge Function입니다. `field`는 비공개 원본 대신 위치 공개 정책을 적용한 표본별 응답을 제공합니다. `stats` 응답은 지역·날짜·특징별 **집계 count**이며 원본 표본 ID·등록 시각·IP 해시는 반환하지 않습니다. 사용자 식별정보를 수집하지 않으므로 1건만 있는 지역도 지역 통계로 표시할 수 있습니다.
 
 - 서버에서 필수값, 실제 존재하는 지역, 색상·크기 enum, 정수 건조도, 날짜 범위, UUID를 재검증합니다.
 - 클라이언트는 사용자 현지 날짜, 서버는 전 세계 시간대를 수용하는 UTC+14의 오늘까지 허용합니다. 1940년 이전은 기상자료 범위에 맞춰 허용하지 않습니다.
@@ -145,9 +156,9 @@ npm run preview
 - 실제 등록 제한: IP 기반 일별 HMAC 식별자로 10분 5건, UTC 일자별 30건. 전체 API 1분 90회, 검색 1분 20회, 기상 1분 40회.
 - 최소 체류시간 800ms와 숨겨진 입력 필드(honeypot)가 단순 자동 등록을 억제합니다. 완전한 봇 방어는 아니며, 대규모 악용 대응용 CAPTCHA는 후속 기능입니다.
 - Supabase 게이트웨이가 설정하는 `X-Forwarded-For`의 마지막 값을 사용합니다. 다른 호스팅으로 옮기면 신뢰할 프록시 헤더를 확인해야 합니다. 헤더가 없으면 공유 `unknown` 버킷으로 제한합니다.
-- 만료 항목은 `select public.atlas_cleanup();`으로 제거할 수 있습니다. Supabase Cron에서 하루 한 번 실행하도록 등록하면 만료된 해시·캐시가 정리됩니다. 보관할 개인별 상세 데이터는 없습니다.
+- 만료 항목은 `select public.atlas_cleanup();`으로 제거할 수 있습니다. Supabase Cron에서 하루 한 번 실행하도록 등록하면 만료된 해시·캐시가 정리됩니다. GPS 게임의 생애 기록은 이 정리 함수로 삭제하지 않습니다.
 
-클라이언트가 보내는 지역 좌표나 임의 지역 객체를 서버가 저장하지 않습니다. 지역은 서버의 검색 결과나 사전 등록된 실제 행정구역만 받아들입니다. 서비스 역할 키는 Edge Function 환경에만 존재합니다.
+지역 선택에 클라이언트가 보내는 대표 좌표나 임의 행정구역 객체를 신뢰하지 않습니다. GPS 놀이의 위치 입력은 별도 동의와 반올림 정책을 적용합니다. 지역은 서버의 검색 결과나 사전 등록된 실제 행정구역만 받아들입니다. 서비스 역할 키는 Edge Function 환경에만 존재합니다.
 
 ## 7. 테스트
 
@@ -164,21 +175,23 @@ npm run build       # TypeScript 검사 + 프로덕션 빌드
 Edge Function 타입 검사는 Deno 2가 있을 때 실행할 수 있습니다.
 
 ```bash
-deno check supabase/functions/atlas/index.ts
+deno check supabase/functions/atlas/index.ts supabase/functions/field/index.ts
 ```
 
 ## 8. 구조
 
 ```text
 src/
-  App.tsx                 # 세 화면 연결, 공통 상태, 관측 지도 화면
-  pages/                  # 기록·지역 분석
+  App.tsx                 # 해시 라우팅, 공통 상태, 관측 지도 화면
+  pages/                  # 홈·검사·GPS 놀이·표본 생애·지역 분석
   components/             # 지도·지역 검색·분포·그래프·기상 패널
   lib/api.ts              # 데모 / Supabase 전환, 저장·검색·캐시
   styles.css              # Tailwind 진입점과 반응형 디자인
 supabase/
   migrations/             # 테이블, RLS, 집계·요청 제한 함수
-  functions/atlas/         # 단일 서버 API
+  functions/atlas/         # 기존 관측 API
+  functions/field/         # GPS 등록·발견·공유·서버 날씨 작업
+  schedule-field.sql       # Vault 비밀을 사용하는 Supabase Cron 설정
   functions/_shared/      # 브라우저/서버 공용 모델·검증·기상 어댑터
 public/world.geojson      # 실제 세계 경계 기초자료
 tests/                   # 단위·DB·브라우저 테스트

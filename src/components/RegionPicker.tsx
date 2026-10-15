@@ -19,6 +19,7 @@ export default function RegionPicker({
     [results, setResults] = useState<Region[] | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('')
+  const [manual, setManual] = useState(!gps)
   const request = useRef(0)
   async function search() {
     const id = ++request.current
@@ -41,9 +42,11 @@ export default function RegionPicker({
     setError('')
     setQuery('')
     setBusy(false)
+    if (gps) setManual(false)
   }
   function gpsSelect() {
     if (!navigator.geolocation) {
+      setManual(true)
       setError('이 브라우저에서는 위치 확인을 지원하지 않습니다. 지역을 직접 검색해 주세요.')
       return
     }
@@ -54,10 +57,15 @@ export default function RegionPicker({
       async (position) => {
         try {
           const r = await reverseRegion(position.coords.latitude, position.coords.longitude)
-          if (id === request.current) pick(r)
+          if (id === request.current) {
+            pick(r)
+            setManual(false)
+          }
         } catch (e) {
-          if (id === request.current)
+          if (id === request.current) {
+            setManual(true)
             setError(e instanceof Error ? e.message : '위치에서 지역을 찾지 못했습니다.')
+          }
         } finally {
           if (id === request.current) setBusy(false)
         }
@@ -65,6 +73,7 @@ export default function RegionPicker({
       (e) => {
         if (id !== request.current) return
         setBusy(false)
+        setManual(true)
         setError(
           e.code === 1
             ? '위치 권한이 거부되었습니다. 아래에서 지역을 직접 검색할 수 있습니다.'
@@ -77,41 +86,65 @@ export default function RegionPicker({
   return (
     <div className="region-picker">
       <label className="field-label">{label}</label>
-      <div className="search-box">
-        <Search size={18} />
-        <input
-          aria-label={label}
-          value={query}
-          placeholder="시·군·구 또는 해외 도시 검색"
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void search()
-            }
-          }}
-        />
-        <button
-          type="button"
-          className="search-submit"
-          onClick={() => void search()}
-          disabled={busy || query.trim().length < 2}
-        >
-          {busy ? <LoaderCircle className="spin" size={17} /> : '검색'}
-        </button>
-        {gps && (
+      {gps && !manual && !value && (
+        <div className="gps-first">
           <button
-            title="현재 위치로 행정구역 찾기"
-            aria-label="GPS로 지역 찾기"
             type="button"
-            className="gps-button"
-            onClick={gpsSelect}
+            className="primary"
+            aria-label="GPS로 지역 찾기"
             disabled={busy}
+            onClick={gpsSelect}
           >
             <Crosshair size={19} />
+            {busy ? '지역 확인 중…' : 'GPS로 발견 지역 자동 설정'}
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            className="text-button"
+            disabled={busy}
+            onClick={() => setManual(true)}
+          >
+            GPS 사용하지 않고 직접 선택
+          </button>
+        </div>
+      )}
+      {manual && (
+        <div className="search-box">
+          <Search size={18} />
+          <input
+            aria-label={label}
+            value={query}
+            placeholder="시·군·구 또는 해외 도시 검색"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                void search()
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="search-submit"
+            onClick={() => void search()}
+            disabled={busy || query.trim().length < 2}
+          >
+            {busy ? <LoaderCircle className="spin" size={17} /> : '검색'}
+          </button>
+          {gps && (
+            <button
+              title="현재 위치로 행정구역 찾기"
+              aria-label="GPS로 지역 찾기"
+              type="button"
+              className="gps-button"
+              onClick={gpsSelect}
+              disabled={busy}
+            >
+              <Crosshair size={19} />
+            </button>
+          )}
+        </div>
+      )}
       {error && (
         <p className="field-error" role="alert">
           {error}
@@ -156,12 +189,19 @@ export default function RegionPicker({
               {value.country} · {value.admin1}
             </small>
           </span>
-          <button type="button" aria-label="선택 지역 해제" onClick={() => onChange(null)}>
+          <button
+            type="button"
+            aria-label="선택 지역 수정"
+            onClick={() => {
+              onChange(null)
+              setManual(true)
+            }}
+          >
             <X size={16} />
           </button>
         </div>
       )}
-      {!value && (
+      {manual && !value && (
         <div className="quick-regions">
           <span>빠른 선택</span>
           {SEED_REGIONS.slice(0, 3).map((r) => (

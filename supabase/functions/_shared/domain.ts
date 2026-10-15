@@ -1,4 +1,5 @@
 export const COLORS = [
+  { id: 'light-yellow', label: '연노랑', hex: '#e6d891' },
   { id: 'yellow', label: '노란색', hex: '#c5a94d' },
   { id: 'brown', label: '갈색', hex: '#9a7251' },
   { id: 'dark-brown', label: '진갈색', hex: '#58463b' },

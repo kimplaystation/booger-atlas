@@ -96,16 +96,14 @@ describe('데모와 공동 수집의 경계', () => {
     expect(localStorage.getItem('booger-atlas:demo:v1')).toBeNull()
   })
   it('동일 지역 날짜의 동시·반복 기상 요청을 캐시한다', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          timezone: 'UTC',
-          daily: { time: ['2020-01-01'], temperature_2m_mean: [0], precipitation_sum: [0] },
-          hourly: { time: ['2020-01-01T00:00'], relative_humidity_2m: [70] },
-        }),
-      })
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        timezone: 'UTC',
+        daily: { time: ['2020-01-01'], temperature_2m_mean: [0], precipitation_sum: [0] },
+        hourly: { time: ['2020-01-01T00:00'], relative_humidity_2m: [70] },
+      }),
+    })
     vi.stubGlobal('fetch', fetch)
     const api = await import('../src/lib/api')
     const results = await Promise.all([
@@ -115,5 +113,30 @@ describe('데모와 공동 수집의 경계', () => {
     expect(results[0][0].humidity).toBe(70)
     await api.getWeather(SEED_REGIONS[0], '2020-01-01')
     expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('GPS 공동 저장 실패 경계', () => {
+  it('Supabase 장애를 로컬 저장 성공으로 바꾸지 않는다', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-public-key')
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: { context: { json: async () => ({ error: 'DB 연결 실패' }) } },
+    })
+    const { saveField } = await import('../src/lib/fieldApi')
+    await expect(
+      saveField({
+        id: crypto.randomUUID(),
+        traits: { color: 'yellow', size: 'small', dryness: 3 },
+        region: SEED_REGIONS[0],
+        position: { latitude: 37.51, longitude: 127.04 },
+        accuracy: 10,
+        indoor: false,
+        publicLocation: false,
+        startedAt: Date.now() - 1000,
+      }),
+    ).rejects.toThrow('DB 연결 실패')
+    expect(localStorage.getItem('booger-atlas:field-demo:v1')).toBeNull()
   })
 })

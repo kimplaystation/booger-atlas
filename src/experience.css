@@ -1,0 +1,882 @@
+/* The inspection is the main experience; the original atlas remains a secondary destination. */
+.play-home {
+  padding-top: 28px;
+}
+.invitation {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: center;
+  gap: 72px;
+  padding: 40px 18px 68px;
+}
+.invitation .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  margin-bottom: 25px;
+}
+.invitation h1 {
+  font-size: clamp(35px, 4vw, 58px);
+  line-height: 1.24;
+  letter-spacing: -0.06em;
+  font-weight: 800;
+  margin: 0 0 28px;
+}
+.invitation h1 em {
+  color: #77814e;
+  font-style: normal;
+}
+.invitation-subtitle {
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.035em;
+  margin: 0 0 14px;
+}
+.invitation-description {
+  color: #758070;
+  font-size: 15px;
+  line-height: 1.9;
+  margin-bottom: 28px;
+}
+.start-exam {
+  min-height: 64px;
+  padding: 17px 26px;
+  font-size: 18px;
+  gap: 42px;
+  border-radius: 6px;
+  box-shadow: 0 5px 0 #dce1d3;
+}
+.start-caption {
+  font-size: 12px;
+  color: #7e8878;
+  margin-top: 16px;
+}
+.sample-display {
+  position: relative;
+  padding: 22px 8px;
+}
+.sample-sheet {
+  position: relative;
+  background: #f8f4e9;
+  border: 1px solid #c5c9b5;
+  padding: 26px 30px 22px;
+  transform: rotate(3deg);
+  box-shadow:
+    9px 12px 0 #e9ecdf,
+    0 15px 32px #324b3210;
+  text-align: center;
+  outline: 1px solid #dadbcb;
+  outline-offset: -9px;
+}
+.sample-tape {
+  position: absolute;
+  z-index: 2;
+  background: #dfe4c8ed;
+  color: #63704d;
+  padding: 9px 26px;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-4deg);
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+.sheet-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #cdd1bd;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.sample-sheet h2 {
+  font-family: Georgia, 'Apple SD Gothic Neo', serif;
+  font-size: 25px;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
+  margin: 20px 0 0;
+}
+.specimen-art {
+  display: block;
+  width: 100%;
+  max-width: 275px;
+  height: auto;
+  margin: 0 auto;
+}
+.sample-sheet .specimen-art {
+  max-width: 235px;
+  margin-top: -4px;
+}
+.example-name {
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.example-type {
+  color: #74805e;
+  font-size: 12px;
+  margin: 4px 0 17px;
+}
+.example-traits {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+}
+.example-traits span {
+  background: #e9eddf;
+  padding: 4px 12px;
+  font-size: 11px;
+  border-radius: 3px;
+}
+.example-note {
+  font-size: 10px;
+  color: #818974;
+  margin: 17px 0 0;
+}
+.sample-seal,
+.ink-seal {
+  color: #a3694b;
+  border: 2px solid #a3694b;
+  border-radius: 50%;
+  width: 59px;
+  height: 59px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 700;
+  transform: rotate(-15deg);
+  outline: 1px solid #a3694b;
+  outline-offset: -5px;
+  flex-shrink: 0;
+}
+.sample-seal {
+  position: absolute;
+  right: 18px;
+  top: 55%;
+}
+.exam-intro {
+  border-top: 1px solid #d9dfd1;
+  border-bottom: 1px solid #d9dfd1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 26px 0;
+  gap: 24px;
+}
+.exam-intro article {
+  display: flex;
+  gap: 14px;
+  padding: 0 10px;
+}
+.exam-intro svg {
+  flex-shrink: 0;
+  color: #7b865c;
+  margin-top: 5px;
+}
+.exam-intro span {
+  color: #8c947f;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.exam-intro h3 {
+  font-size: 15px;
+  margin: 5px 0;
+}
+.exam-intro p {
+  font-size: 12px;
+  color: #818975;
+  margin: 0;
+}
+.explore-invitation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 10px 22px;
+}
+.explore-invitation .eyebrow {
+  font-size: 10px;
+}
+.explore-invitation h2 {
+  font-size: 20px;
+  letter-spacing: -0.035em;
+  margin: 8px 0;
+}
+.explore-invitation p,
+.humor-footnote {
+  color: #818975;
+  font-size: 12px;
+}
+.humor-footnote {
+  text-align: center;
+  margin: 26px 0 0;
+  font-size: 11px;
+}
+.exam-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 10px 0 30px;
+}
+.exam-heading {
+  text-align: center;
+  margin: 13px 0 28px;
+}
+.exam-heading .eyebrow {
+  font-size: 10px;
+}
+.exam-heading h1 {
+  margin: 22px 0 8px;
+  font-size: 32px;
+  letter-spacing: -0.045em;
+}
+.exam-heading > p:last-child {
+  color: #7b8474;
+  font-size: 14px;
+}
+.exam-progress {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 22px 0 0;
+}
+.exam-progress li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #9a9f93;
+  font-size: 12px;
+}
+.exam-progress li span {
+  border: 1px solid #d4dacb;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+.exam-progress .current {
+  color: #344f32;
+}
+.exam-progress .current span {
+  background: #3d5436;
+  color: #fff;
+  border-color: #3d5436;
+}
+.exam-form {
+  padding: 32px;
+  border-radius: 8px;
+}
+.exam-fields {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.exam-form fieldset fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 26px;
+  width: 100%;
+  min-width: 0;
+}
+.exam-form .field-label {
+  margin-bottom: 12px;
+}
+.exam-form .color-options {
+  grid-template-columns: repeat(3, 1fr);
+}
+.exam-form .color-options button {
+  min-height: 58px;
+}
+.exam-form .size-options button {
+  min-height: 110px;
+}
+.exam-form .dry-options button {
+  min-height: 62px;
+  font-size: 22px;
+}
+.exam-form .date-input {
+  width: 100%;
+  min-height: 47px;
+}
+.exam-hint {
+  font-size: 12px;
+  color: #818975;
+  margin: 10px 0 25px;
+  line-height: 1.7;
+}
+.exam-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 26px;
+}
+.exam-controls .primary {
+  flex: 1;
+  justify-content: center;
+  min-height: 54px;
+  font-size: 16px;
+}
+.exam-controls .outline {
+  min-width: 88px;
+}
+.exam-privacy {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #89917e;
+  margin: 18px 0 0;
+}
+.dry-description {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  background: #f2f4eb;
+  padding: 22px;
+  border-radius: 5px;
+  margin: 22px 0 0;
+}
+.dry-description small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  margin-top: 7px;
+  color: #7e8872;
+}
+.exam-review {
+  border-top: 1px dashed #d4dbc9;
+  padding-top: 20px;
+}
+.exam-review span {
+  display: block;
+  font-size: 11px;
+  color: #818975;
+  margin-bottom: 7px;
+}
+.exam-review strong {
+  display: block;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.exam-review p {
+  font-size: 12px;
+  color: #7b8470;
+  margin-bottom: 0;
+}
+.globe-scan {
+  text-align: center;
+  padding: 55px 0 80px;
+}
+.globe-scan canvas {
+  width: min(360px, 90%);
+  display: block;
+  margin: 10px auto;
+}
+.globe-scan h1 {
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+.scan-region {
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.globe-scan .muted {
+  font-size: 12px;
+}
+.certificate-page {
+  padding: 25px 0 35px;
+}
+.certificate-intro {
+  text-align: center;
+  margin-bottom: 36px;
+}
+.certificate-intro h1 {
+  font-size: 30px;
+  letter-spacing: -0.04em;
+  margin: 12px 0 9px;
+}
+.certificate-intro > p:last-child {
+  color: #7b8570;
+  font-size: 14px;
+}
+.certificate-layout {
+  max-width: 1000px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 44px;
+}
+.certificate-paper {
+  background: #f8f4e9;
+  padding: 28px 34px;
+  border: 1px solid #bfc7ad;
+  outline: 1px solid #d0d4c0;
+  outline-offset: -9px;
+  box-shadow: 5px 7px 0 #e6eadb;
+  text-align: center;
+}
+.certificate-paper h2 {
+  font-size: 29px;
+  letter-spacing: -0.04em;
+  line-height: 1.4;
+  margin: 24px 0 6px;
+}
+.certificate-title-break {
+  display: none;
+}
+.certificate-mode {
+  font-size: 11px;
+  color: #798568;
+  margin: 0;
+}
+.certificate-paper .specimen-art {
+  max-width: 285px;
+}
+.art-caption {
+  font-size: 9px;
+  color: #8a927e;
+  margin: -10px 0 17px;
+}
+.certificate-paper h3 {
+  font-size: 28px;
+  letter-spacing: -0.04em;
+  margin: 0;
+  line-height: 1.4;
+}
+.certificate-subtype {
+  font-size: 14px;
+  color: #768267;
+  margin: 6px 0 18px;
+}
+.classification {
+  background: #e8eddf;
+  display: inline-block;
+  font-size: 11px;
+  padding: 8px 16px;
+  border-radius: 3px;
+  margin: 0 0 25px;
+}
+.classification strong {
+  margin-left: 8px;
+  letter-spacing: 0.035em;
+}
+.certificate-facts {
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 18px 10px;
+  margin: 0;
+  padding: 0 0 20px;
+  border-bottom: 1px solid #d2d6c3;
+}
+.certificate-facts dt {
+  font-size: 11px;
+  color: #7d886d;
+  margin-bottom: 4px;
+}
+.certificate-facts dd {
+  font-weight: 600;
+  font-size: 20px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.certificate-facts dd small {
+  font-size: 11px;
+  display: block;
+  font-weight: 400;
+}
+.certificate-location,
+.certificate-date {
+  grid-column: 1 / -1;
+}
+.certificate-location dd {
+  font-size: 18px;
+}
+.certificate-date dd {
+  font-size: 14px;
+}
+.certificate-quip {
+  font-size: 13px;
+  color: #68765b;
+  margin: 20px 0 10px;
+}
+.certificate-disclaimer {
+  font-size: 10px;
+  color: #879077;
+  line-height: 1.7;
+}
+.certificate-sign {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  margin-top: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.certificate-sign small {
+  color: #869071;
+  font-size: 10px;
+  font-weight: 400;
+}
+.certificate-actions {
+  padding-top: 22px;
+}
+.certificate-actions h2 {
+  font-size: 25px;
+  line-height: 1.45;
+  letter-spacing: -0.04em;
+  margin: 12px 0;
+}
+.certificate-actions > p:not(.eyebrow) {
+  color: #7e8873;
+  font-size: 13px;
+}
+.certificate-actions > .primary,
+.download-certificate,
+.certificate-next > .primary {
+  width: 100%;
+  justify-content: center;
+  min-height: 52px;
+  margin-top: 12px;
+}
+.download-certificate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.certificate-actions > .text-button {
+  margin: 15px auto;
+}
+.certificate-actions .share-tip,
+.certificate-actions .shared-notice {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.certificate-actions .share-message {
+  padding: 12px;
+  background: #e9eee0;
+  color: #3e5b34;
+  border-radius: 3px;
+}
+.share-link {
+  display: block;
+  font-size: 11px;
+  color: #738164;
+}
+.share-link input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px;
+  font-size: 12px;
+  margin: 5px 0 12px;
+  border: 1px solid #c5cdb8;
+  border-radius: 4px;
+  background: #fff;
+}
+.certificate-next {
+  border-top: 1px solid #d7ddcd;
+  padding-top: 16px;
+  margin-top: 25px;
+}
+.certificate-next .text-button {
+  margin-top: 17px;
+  font-size: 12px;
+}
+.classification-rules {
+  border-top: 1px solid #d7ddcd;
+  padding-top: 18px;
+  margin-top: 24px;
+  font-size: 11px;
+  color: #7c876d;
+}
+.classification-rules summary {
+  cursor: pointer;
+  color: #536848;
+}
+.invalid-certificate {
+  padding: 40px;
+  margin: 40px auto;
+  text-align: center;
+}
+@media (max-width: 850px) {
+  .invitation {
+    gap: 28px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .invitation h1 {
+    font-size: 39px;
+  }
+  .sample-sheet {
+    padding: 25px 20px 22px;
+  }
+  .example-name {
+    font-size: 20px;
+  }
+  .sheet-top {
+    font-size: 8px;
+  }
+  .certificate-layout {
+    gap: 25px;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+  .certificate-paper {
+    padding: 25px;
+  }
+  .certificate-paper h3 {
+    font-size: 25px;
+  }
+}
+@media (max-width: 650px) {
+  .site-header nav {
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .site-header nav a {
+    font-size: 11px;
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+  .site-header nav svg {
+    width: 13px;
+  }
+  .play-home {
+    padding-top: 0;
+  }
+  .invitation {
+    grid-template-columns: 1fr;
+    gap: 35px;
+    padding: 28px 6px 38px;
+  }
+  .invitation-copy {
+    text-align: center;
+  }
+  .invitation .eyebrow {
+    font-size: 9px;
+    margin-bottom: 18px;
+  }
+  .invitation h1 {
+    font-size: clamp(32px, 8.8vw, 46px);
+    margin-bottom: 19px;
+  }
+  .invitation-subtitle {
+    font-size: 19px;
+  }
+  .invitation-subtitle br {
+    display: none;
+  }
+  .invitation-description {
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .start-exam {
+    width: 100%;
+    justify-content: center;
+    font-size: 17px;
+    min-height: 60px;
+    gap: 20px;
+  }
+  .start-caption {
+    font-size: 10px;
+  }
+  .sample-display {
+    max-width: 370px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 20px 14px;
+  }
+  .sample-sheet {
+    transform: rotate(2deg);
+    padding: 25px;
+  }
+  .sample-sheet .specimen-art {
+    max-width: 200px;
+  }
+  .exam-intro {
+    grid-template-columns: 1fr;
+    padding: 25px 0;
+    gap: 21px;
+  }
+  .exam-intro article {
+    gap: 18px;
+  }
+  .exam-intro h3 {
+    font-size: 15px;
+  }
+  .exam-intro p {
+    font-size: 12px;
+  }
+  .explore-invitation {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 30px 4px 10px;
+    gap: 12px;
+  }
+  .explore-invitation h2 {
+    font-size: 18px;
+  }
+  .explore-invitation p {
+    font-size: 12px;
+  }
+  .explore-invitation .outline {
+    width: 100%;
+    justify-content: center;
+  }
+  .humor-footnote {
+    font-size: 10px;
+  }
+  .exam-page {
+    padding-top: 0;
+  }
+  .exam-heading {
+    margin-bottom: 23px;
+  }
+  .exam-heading h1 {
+    font-size: 28px;
+  }
+  .exam-heading > p:last-child {
+    font-size: 12px;
+  }
+  .exam-progress {
+    gap: 21px;
+  }
+  .exam-form {
+    padding: 22px 17px;
+  }
+  .exam-form .size-options {
+    gap: 7px;
+  }
+  .exam-form .color-options {
+    gap: 7px;
+  }
+  .exam-form .color-options button {
+    font-size: 12px;
+    min-height: 58px;
+  }
+  .exam-form .size-options small {
+    font-size: 9px;
+  }
+  .exam-form .dry-options button {
+    min-height: 55px;
+  }
+  .exam-privacy {
+    font-size: 9px;
+  }
+  .exam-controls .primary {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+  .exam-controls .outline {
+    min-width: 70px;
+    padding: 12px;
+  }
+  .globe-scan {
+    padding: 25px 0 60px;
+  }
+  .globe-scan h1 {
+    font-size: 20px;
+  }
+  .scan-region {
+    font-size: 14px;
+  }
+  .certificate-page {
+    padding: 22px 0;
+  }
+  .certificate-intro {
+    margin-bottom: 24px;
+  }
+  .certificate-intro .eyebrow {
+    font-size: 9px;
+  }
+  .certificate-intro h1 {
+    font-size: 23px;
+  }
+  .certificate-intro > p:last-child {
+    font-size: 12px;
+  }
+  .certificate-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .certificate-paper {
+    padding: 23px;
+  }
+  .certificate-paper h2 {
+    font-size: 26px;
+    margin-top: 20px;
+  }
+  .certificate-title-break {
+    display: block;
+  }
+  .certificate-paper .specimen-art {
+    max-width: 235px;
+  }
+  .certificate-paper h3 {
+    font-size: 25px;
+  }
+  .certificate-mode {
+    font-size: 9px;
+  }
+  .certificate-facts dd {
+    font-size: 19px;
+  }
+  .certificate-location dd {
+    font-size: 16px;
+  }
+  .certificate-date dd {
+    font-size: 13px;
+  }
+  .certificate-quip {
+    font-size: 12px;
+  }
+  .certificate-disclaimer {
+    font-size: 9px;
+  }
+  .certificate-actions {
+    padding: 10px 4px;
+  }
+  .certificate-actions h2 br {
+    display: none;
+  }
+  .certificate-actions h2 {
+    font-size: 23px;
+  }
+  .certificate-actions > p br {
+    display: none;
+  }
+  .certificate-actions > .primary,
+  .certificate-next > .primary,
+  .download-certificate {
+    min-height: 56px;
+    font-size: 15px;
+  }
+  .invalid-certificate {
+    padding: 24px;
+  }
+  .invalid-certificate h1 {
+    font-size: 23px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

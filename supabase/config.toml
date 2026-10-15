@@ -3,3 +3,7 @@ project_id = "booger-atlas"
 [functions.atlas]
 verify_jwt = false
 # Anonymous endpoint; strict server validation, rate limits and RLS are applied inside.
+
+[functions.field]
+verify_jwt = false
+# Browser actions validate origin, payload and rate. Cron requires a separate server secret.
