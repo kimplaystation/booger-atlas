@@ -2,20 +2,27 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Camera, Crosshair, X } from 'lucide-react'
 import { COLORS } from '../lib/domain'
-import type { Traits } from '../lib/fieldApi'
+import type { Position, Traits } from '../lib/fieldApi'
+import { bearing, distance } from '../../supabase/functions/_shared/field'
+import { cameraOrientation, cameraHeading, localPoint, throwPlacement } from './geo'
+import type { GPSFix, Placement, Orientation } from './geo'
 
 /** WebXR hit-test anchors are session-only; GPS persistence never claims a surface pose. */
 export default function CameraStage({
   traits,
   discovery = false,
-  approxBearing,
+  target,
+  initialFix,
+  targetAccuracy,
   onLanded,
   onClose,
 }: {
   traits: Traits
   discovery?: boolean
-  approxBearing?: number
-  onLanded: () => void
+  target?: Position | null
+  initialFix?: GPSFix | null
+  targetAccuracy?: number
+  onLanded: (placement?: Placement) => void
   onClose: () => void
 }) {
   const host = useRef<HTMLDivElement>(null),
@@ -28,7 +35,11 @@ export default function CameraStage({
     [xrSupported, setXRSupported] = useState(false),
     [hit, setHit] = useState(false),
     [fired, setFired] = useState(false),
-    [heading, setHeading] = useState<number | null>(null)
+    [heading, setHeading] = useState<number | null>(null),
+    [tracking, setTracking] = useState('GPS 확인 중…'),
+    [currentAccuracy, setCurrentAccuracy] = useState<number | null>(null),
+    [targetDistance, setTargetDistance] = useState<number | null>(null),
+    [directionDelta, setDirectionDelta] = useState<number | null>(null)
   const callback = useRef(onLanded),
     traitsRef = useRef(traits)
   callback.current = onLanded
@@ -39,6 +50,12 @@ export default function CameraStage({
       source: XRHitTestSource | undefined,
       sourceSession: XRSession | undefined,
       disposed = false
+    let fix = initialFix ?? null,
+      origin: Position | null = null,
+      orientation: THREE.Quaternion | null = null,
+      watch: number | undefined,
+      placement: Placement | undefined,
+      lastHUD = 0
     let gyro: ((e: DeviceOrientationEvent) => void) | undefined
     const abort = new AbortController()
     let down: { x: number; y: number } | null = null,
@@ -70,7 +87,7 @@ export default function CameraStage({
         video.current!.srcObject = stream
         await video.current!.play()
         const scene = new THREE.Scene(),
-          camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100)
+          camera = new THREE.PerspectiveCamera(50, 1, 0.01, 10000)
         camera.position.set(0, 1.3, 0)
         camera.rotation.x = -0.4
         renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
@@ -118,6 +135,7 @@ export default function CameraStage({
           }),
         )
         marker.position.set(0, 0.005, -2)
+        marker.visible = false
         scene.add(marker)
         const resize = () => {
           if (!renderer || !host.current || renderer.xr.isPresenting) return
@@ -131,7 +149,7 @@ export default function CameraStage({
         abort.signal.addEventListener('abort', () => ro.disconnect())
         resize()
         const fire = () => {
-          if (firing || firedOnce || !renderer) return
+          if (discovery || firing || firedOnce || !renderer) return
           if (renderer.xr.isPresenting && !reticle.visible) {
             setError('평면을 아직 찾지 못했습니다. 카메라로 바닥을 천천히 비춰주세요.')
             return
@@ -146,9 +164,20 @@ export default function CameraStage({
           active.getWorldQuaternion(camQ)
           start.set(0.12, -0.15, -0.3).applyQuaternion(camQ).add(camPos)
           if (renderer.xr.isPresenting) end.setFromMatrixPosition(reticle.matrix)
-          else end.set(0, 0, -2)
+          else {
+            if (fix && Date.now() - fix.time < 60000 && fix.accuracy <= 100) {
+              origin ??= fix.position
+              placement = throwPlacement(fix, orientation ? cameraHeading(orientation) : null)
+              if (orientation) end.copy(localPoint(origin, placement.position))
+              else end.copy(camera.position).add(new THREE.Vector3(0, -1.3, -2))
+            } else {
+              end.set(0, 0, -2)
+              placement = undefined
+            }
+          }
           booger.position.copy(start)
           booger.visible = true
+          marker.visible = true
           marker.position.copy(end)
           marker.position.y += 0.003
         }
@@ -204,6 +233,58 @@ export default function CameraStage({
             if (pose) reticle.matrix.fromArray(pose.transform.matrix)
             setHit(Boolean(pose))
           }
+          if (!renderer.xr.isPresenting) {
+            const usable = !!fix && Date.now() - fix.time < 60000 && fix.accuracy <= 100
+            if (usable && fix) {
+              origin ??= fix.position
+              camera.position.copy(localPoint(origin, fix.position)).setY(1.3)
+            }
+            if (orientation) camera.quaternion.slerp(orientation, 0.22)
+            if (discovery) {
+              booger.visible = !!(target && usable && orientation && origin)
+              marker.visible = booger.visible
+              if (booger.visible && target && origin) {
+                booger.position.copy(localPoint(origin, target)).setY(size * 0.4)
+                // Enlarge at distance so tiny specimens can be found; coordinates stay fixed.
+                const scale = Math.max(2.5, camera.position.distanceTo(booger.position) / 3)
+                booger.scale.set(
+                  size * scale,
+                  size * scale * (0.5 + t.dryness * 0.07),
+                  size * scale * 0.8,
+                )
+                marker.position.copy(booger.position).setY(0.005)
+                marker.scale.setScalar(scale)
+              }
+            }
+            if (performance.now() - lastHUD > 200) {
+              lastHUD = performance.now()
+              const h = orientation ? cameraHeading(orientation) : null
+              setHeading(h === null ? null : Math.round(h))
+              setCurrentAccuracy(usable && fix ? Math.ceil(fix.accuracy) : null)
+              setTracking(
+                !usable
+                  ? 'GPS를 다시 확인 중 · 창가나 야외에서 시도하세요'
+                  : !orientation
+                    ? '방향 센서를 허용하고 휴대폰을 세워주세요'
+                    : 'GPS 위치 고정 · 휴대폰을 돌려 찾아보세요',
+              )
+              if (target && fix) {
+                setTargetDistance(Math.round(distance(fix.position, target)))
+                setDirectionDelta(
+                  h === null ? null : ((bearing(fix.position, target) - h + 540) % 360) - 180,
+                )
+              }
+              // Also drives an accessible location indicator; useful when an object is out of view.
+              const projected = booger.position.clone().project(camera)
+              const inView =
+                booger.visible &&
+                projected.z > -1 &&
+                projected.z < 1 &&
+                Math.abs(projected.x) <= 1 &&
+                Math.abs(projected.y) <= 1
+              host.current?.setAttribute('data-target-in-view', String(inView))
+            }
+          }
           if (firing) {
             const p = Math.min(1, (performance.now() - began) / 850)
             booger.position.lerpVectors(start, end, p)
@@ -213,7 +294,9 @@ export default function CameraStage({
               firing = false
               booger.position.y += size * 0.35
               booger.scale.y *= 0.55 + (t.dryness / 5) * 0.3
-              callback.current()
+              if (renderer.xr.isPresenting && fix && Date.now() - fix.time < 60000)
+                placement = throwPlacement(fix, null)
+              callback.current(placement)
             }
           }
           renderer.render(scene, camera)
@@ -272,6 +355,11 @@ export default function CameraStage({
     const hidden = () => {
       if (document.hidden) {
         stream?.getTracks().forEach((t) => t.stop())
+        if (watch !== undefined) {
+          navigator.geolocation.clearWatch(watch)
+          watch = undefined
+        }
+        fix = null
         void session?.end()
         setReady(false)
         setError('카메라를 중지했습니다. 다시 사용하려면 닫은 뒤 열어주세요.')
@@ -279,25 +367,42 @@ export default function CameraStage({
     }
     document.addEventListener('visibilitychange', hidden)
     gyro = (e) => {
-      const d = e as DeviceOrientationEvent & {
-        webkitCompassHeading?: number
-        webkitCompassAccuracy?: number
-      }
-      if (
-        typeof d.webkitCompassHeading === 'number' &&
-        (d.webkitCompassAccuracy ?? -1) >= 0 &&
-        (d.webkitCompassAccuracy ?? 100) <= 30
+      const q = cameraOrientation(
+        e as Orientation,
+        screen.orientation?.angle ?? (window as Window & { orientation?: number }).orientation ?? 0,
       )
-        setHeading(Math.round(d.webkitCompassHeading))
-      else if (e.absolute && typeof e.alpha === 'number')
-        setHeading(Math.round((360 - e.alpha) % 360))
+      if (q) orientation = q
+      else if ((e as Orientation).webkitCompassHeading !== undefined) orientation = null
     }
     window.addEventListener('deviceorientation', gyro)
+    window.addEventListener('deviceorientationabsolute', gyro as EventListener)
+    if (navigator.geolocation?.watchPosition)
+      watch = navigator.geolocation.watchPosition(
+        (p) => {
+          if (!disposed)
+            fix = {
+              position: { latitude: p.coords.latitude, longitude: p.coords.longitude },
+              accuracy: p.coords.accuracy,
+              time: p.timestamp || Date.now(),
+            }
+        },
+        () => {
+          if (!disposed) {
+            fix = null
+            setTracking('GPS 접근 실패 · 위치 권한을 확인하세요')
+          }
+        },
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
+      )
     return () => {
       disposed = true
       abort.abort()
       document.removeEventListener('visibilitychange', hidden)
-      if (gyro) window.removeEventListener('deviceorientation', gyro)
+      if (gyro) {
+        window.removeEventListener('deviceorientation', gyro)
+        window.removeEventListener('deviceorientationabsolute', gyro as EventListener)
+      }
+      if (watch !== undefined) navigator.geolocation.clearWatch(watch)
       stream?.getTracks().forEach((t) => t.stop())
       source?.cancel()
       void session?.end()
@@ -313,15 +418,13 @@ export default function CameraStage({
         requestPermission?: () => Promise<string>
       }
       if (event.requestPermission && (await event.requestPermission()) !== 'granted')
-        setError('방향 권한이 없습니다. 가까운 가상 바닥에 표시합니다.')
+        setError(
+          '방향 권한이 없습니다. 설정에서 동작 및 방향 접근을 허용해야 저장 위치를 볼 수 있습니다.',
+        )
     } catch {
-      setError('방향 센서를 사용할 수 없습니다. 가까운 가상 바닥에 표시합니다.')
+      setError('방향 센서를 사용할 수 없습니다. 지도에서 저장 위치를 확인해 주세요.')
     }
   }
-  const directionDelta =
-    heading !== null && approxBearing !== undefined
-      ? ((approxBearing - heading + 540) % 360) - 180
-      : null
   return (
     <div className="camera-overlay" ref={overlay}>
       <div className="camera-stage" ref={host} data-testid="camera-stage">
@@ -338,9 +441,11 @@ export default function CameraStage({
             ? hit
               ? 'WebXR 평면 인식 · 현재 세션만 유효'
               : 'WebXR · 바닥 탐색 중'
-            : '카메라 오버레이 · 가상 바닥 연출'}
+            : discovery
+              ? 'GPS 위치 보기 · 가상 바닥'
+              : '카메라 오버레이 · 가상 바닥 연출'}
         </div>
-        {!fired && (
+        {!fired && !discovery && (
           <svg className="loaded-hand" viewBox="0 0 250 230" aria-label="코딱지를 장전한 손">
             <path
               d="M62 230L53 156Q50 127 76 124L88 138L70 79Q65 60 80 57Q93 54 101 74L119 119L137 49Q141 28 158 34Q173 39 166 60L155 113Q175 94 187 110L207 149Q220 176 203 203L190 230Z"
@@ -370,9 +475,7 @@ export default function CameraStage({
           <X size={22} />
         </button>
         <span>
-          {heading === null
-            ? '방향 미확인 · 가상 바닥'
-            : `기기 방향 약 ${heading}° · 정밀 복원 아님`}
+          {heading === null ? '방향 미확인' : `기기 방향 약 ${heading}° · 정밀 복원 아님`}
         </span>
       </div>
       <div className="camera-bottom">
@@ -380,30 +483,45 @@ export default function CameraStage({
           <p className="direction-hint">
             GPS·나침반 참고:{' '}
             {Math.abs(directionDelta) < 30
-              ? '대략 앞쪽'
+              ? '앞쪽 · 바닥을 비춰보세요'
               : directionDelta > 0
                 ? '오른쪽 방향'
                 : '왼쪽 방향'}{' '}
-            · 표시 위치는 가상 바닥입니다.
+            · 약 {targetDistance}m
           </p>
+        )}
+        {discovery && targetDistance !== null && targetDistance < 2 && (
+          <p>저장 위치 바로 위입니다. 한두 걸음 뒤로 물러나 바닥을 비춰보세요.</p>
         )}
         {error && <p role="alert">{error}</p>}
         <p>
           {discovery
-            ? '선택한 표본을 가까운 가상 바닥에 놓아보세요.'
-            : '손에서 위로 밀어 코딱지를 튕겨보세요.'}
+            ? target
+              ? tracking
+              : '이 표본은 위치 비공개입니다. 근처 발견에서 찾아주세요.'
+            : heading === null
+              ? '방향 센서를 허용하면 던진 방향도 저장됩니다.'
+              : '손에서 위로 밀어 코딱지를 튕겨보세요.'}
         </p>
-        <strong>GPS는 주변 위치만 나타냅니다. 같은 바닥 지점의 복원이 아닙니다.</strong>
+        <strong>
+          {discovery
+            ? `저장 오차 ${targetAccuracy === undefined ? '미기록 (이전 기록은 20m 격자)' : '약 ' + Math.ceil(targetAccuracy) + 'm'} + 현재 GPS ${currentAccuracy === null ? '미확인' : currentAccuracy + 'm'}·나침반 오차 · 확대 표시`
+            : '방향 확인 시 앞쪽 2m를 가상 착탄점으로 저장합니다.'}
+          <br />
+          실제 바닥 높이는 감지하지 않습니다. GPS 오차로 위치가 흔들릴 수 있습니다.
+        </strong>
         <div>
-          <button
-            className="primary"
-            disabled={!ready || fired || (mode === 'xr' && !hit)}
-            onClick={() => engine.current?.fire()}
-          >
-            <Camera size={17} />
-            {fired ? '표시 완료' : discovery ? '가상 바닥에 표시' : '튕기기'}
-          </button>
-          {xrSupported && mode === 'overlay' && ready && !fired && (
+          {!discovery && (
+            <button
+              className="primary"
+              disabled={!ready || fired || (mode === 'xr' && !hit)}
+              onClick={() => engine.current?.fire()}
+            >
+              <Camera size={17} />
+              {fired ? '표시 완료' : '튕기기'}
+            </button>
+          )}
+          {!discovery && xrSupported && mode === 'overlay' && ready && !fired && (
             <button
               className="outline"
               onClick={() =>
@@ -416,7 +534,10 @@ export default function CameraStage({
               실제 평면 인식 시도
             </button>
           )}
-          <button className="text-button" onClick={() => void requestDirection()}>
+          <button
+            className={heading === null ? 'primary' : 'text-button'}
+            onClick={() => void requestDirection()}
+          >
             방향 센서 허용
           </button>
         </div>

@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // Node uses the cloud environment's existing trusted CA configuration.
 const providers = {
   nominatim: 'https://nominatim.openstreetmap.org',
+  tiles: 'https://tile.openstreetmap.org',
   forecast: 'https://api.open-meteo.com',
   archive: 'https://archive-api.open-meteo.com',
   air: 'https://air-quality-api.open-meteo.com',

@@ -14,21 +14,64 @@ async function gps(page: import('@playwright/test').Page, accuracy = 12) {
   await page.addInitScript(
     ({ accuracy }) => {
       ;(window as any).__gps = 0
+      ;(window as any).__alpha = 0
+      ;(window as any).__sensor = true
+      setInterval(() => {
+        if ((window as any).__sensor)
+          window.dispatchEvent(
+            new DeviceOrientationEvent('deviceorientationabsolute', {
+              absolute: true,
+              alpha: (window as any).__alpha,
+              beta: 60,
+              gamma: 0,
+            }),
+          )
+      }, 60)
       Object.defineProperty(navigator, 'geolocation', {
         value: {
+          watchPosition: (success: any) => {
+            ;(window as any).__watching = true
+            ;(window as any).__gpsUpdate = success
+            success({
+              timestamp: Date.now(),
+              coords: { latitude: 37.517212345, longitude: 127.047312345, accuracy },
+            })
+            return 7
+          },
+          clearWatch: () => {
+            ;(window as any).__watching = false
+          },
           getCurrentPosition: (success: any) => {
             ;(window as any).__gps++
-            success({ coords: { latitude: 37.517212345, longitude: 127.047312345, accuracy } })
+            success({
+              timestamp: Date.now(),
+              coords: { latitude: 37.517212345, longitude: 127.047312345, accuracy },
+            })
           },
         },
       })
     },
     { accuracy },
   )
+  await page.route('**/external/forecast/v1/forecast**', (r) =>
+    r.fulfill({
+      json: {
+        current: {
+          time: '2026-10-15T12:00',
+          temperature_2m: 22,
+          relative_humidity_2m: 70,
+          precipitation: 0,
+          wind_speed_10m: 4,
+          wind_direction_10m: 180,
+          weather_code: 2,
+        },
+      },
+    }),
+  )
   await page.route('**/external/nominatim/reverse**', (r) => r.fulfill({ json: boundary }))
   await page.route('**/external/nominatim/lookup**', (r) => r.fulfill({ json: [boundary] }))
 }
-test('카메라 발사 → GPS 저장 → 새 방문 발견 → 생애 링크, 정밀 위치 미노출', async ({
+test('카메라 발사 → 정밀 GPS 저장 → 재방문 방향 추적 → 같은 지도 기상', async ({
   page,
 }, testInfo) => {
   const errors: string[] = []
@@ -44,7 +87,11 @@ test('카메라 발사 → GPS 저장 → 새 방문 발견 → 생애 링크, �
   await expect(page.getByLabel('후면 카메라 영상')).toBeVisible()
   await expect(page.getByRole('button', { name: '튕기기', exact: true })).toBeEnabled()
   await expect(page.getByText('카메라 오버레이 · 가상 바닥 연출')).toBeVisible()
-  const box = await page.getByTestId('camera-stage').boundingBox()
+  const box = await page.getByTestId('camera-stage').evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    return { x: r.x, y: r.y, width: r.width, height: r.height }
+  })
+  expect(box.width).toBeGreaterThan(300)
   await page.mouse.move(box!.x + box!.width * 0.5, box!.y + box!.height * 0.6)
   await page.mouse.down()
   await page.mouse.move(box!.x + box!.width * 0.5, box!.y + box!.height * 0.35, { steps: 8 })
@@ -54,19 +101,70 @@ test('카메라 발사 → GPS 저장 → 새 방문 발견 → 생애 링크, �
   await page.getByRole('button', { name: 'GPS 주변에 저장', exact: true }).click()
   await expect(page.getByRole('heading', { name: '아직 살아 있는 작은 발견.' })).toBeVisible()
   const raw = await page.evaluate(() => localStorage.getItem('booger-atlas:field-demo:v1')!)
-  expect(raw).not.toContain('37.517212345')
-  expect(raw).not.toContain('127.047312345')
+  const stored = JSON.parse(raw).specimens[0]
+  expect(stored.accuracyMeters).toBe(12)
+  // A northward virtual throw is saved two metres ahead, without the old 20m snapping.
+  expect(stored.position.latitude).toBeGreaterThan(37.517212345)
+  expect(stored.position.latitude - 37.517212345).toBeLessThan(0.00003)
   expect(JSON.parse(raw).specimens).toHaveLength(1)
   await expect(page.getByText('개별 위치 비공개', { exact: false }).first()).not.toBeVisible()
   await page.getByRole('button', { name: '이 브라우저용 링크 복사' }).click()
   const url = await page.getByRole('textbox', { name: '코딱지 공유 링크' }).inputValue()
   expect(url).toContain('#specimen=')
+  expect(url).not.toContain('latitude')
+  expect(url).not.toContain('ownerKey')
   await page.reload()
   await expect(page.getByRole('heading', { name: '아직 살아 있는 작은 발견.' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'GPS 표본 지도' })).toBeVisible()
+  await expect(page.locator('.saved-coordinate')).toContainText('오차 약 12m')
+  await expect(page.getByLabel('지도 위치의 기상정보')).toContainText('22°C')
+  await expect(page.getByLabel('지도 위치의 기상정보')).toContainText('4m/s')
+  await expect(page.locator('.leaflet-tile').first()).toHaveAttribute(
+    'src',
+    /external\/tiles\/18\//,
+  )
+  await page.getByRole('button', { name: '저장 위치를 카메라로 보기' }).click()
+  await expect(page.getByTestId('camera-stage')).toHaveAttribute('data-target-in-view', 'true')
+  await expect(page.getByRole('button', { name: '튕기기', exact: true })).toHaveCount(0)
+  await page.evaluate(() => {
+    ;(window as any).__alpha = 180
+  })
+  await expect(page.getByTestId('camera-stage')).toHaveAttribute('data-target-in-view', 'false')
+  await page.evaluate(() => {
+    ;(window as any).__alpha = 0
+  })
+  await expect(page.getByTestId('camera-stage')).toHaveAttribute('data-target-in-view', 'true')
+  await page.screenshot({ path: `test-results/${testInfo.project.name}-gps-camera.png` })
+  await page.evaluate(() =>
+    (window as any).__gpsUpdate({
+      timestamp: Date.now(),
+      coords: { latitude: 37.517212345, longitude: 127.0475, accuracy: 12 },
+    }),
+  )
+  await expect(page.getByTestId('camera-stage')).toHaveAttribute('data-target-in-view', 'false')
+  await expect(page.locator('.direction-hint')).toContainText('왼쪽 방향')
+  await page.evaluate(() =>
+    (window as any).__gpsUpdate({
+      timestamp: Date.now(),
+      coords: { latitude: 37.517212345, longitude: 127.047312345, accuracy: 12 },
+    }),
+  )
+  await expect(page.getByTestId('camera-stage')).toHaveAttribute('data-target-in-view', 'true')
+  await page.getByRole('button', { name: '카메라 닫기' }).click()
+  expect(await page.evaluate(() => (window as any).__watching)).toBe(false)
+  await page.evaluate(() => {
+    ;(window as any).__sensor = false
+  })
+  await page.getByRole('button', { name: '저장 위치를 카메라로 보기' }).click()
+  await expect(page.getByTestId('camera-stage')).toHaveAttribute('data-target-in-view', 'false')
+  await expect(page.getByText('방향 센서를 허용하고 휴대폰을 세워주세요')).toBeVisible()
+  await page.getByRole('button', { name: '카메라 닫기' }).click()
   await page.screenshot({
     path: `test-results/${testInfo.project.name}-field-detail.png`,
     fullPage: true,
+  })
+  await page.evaluate(() => {
+    ;(window as any).__sensor = true
   })
   await page.goto('/#field')
   await page.getByRole('button', { name: 'GPS로 현재 지역 확인' }).click()
@@ -76,8 +174,7 @@ test('카메라 발사 → GPS 저장 → 새 방문 발견 → 생애 링크, �
   await expect(page.locator('.nearby-results article')).toHaveCount(1)
   await expect(page.locator('.nearby-results')).toContainText('연노랑')
   await page.getByRole('button', { name: '카메라에서 보기' }).click()
-  await expect(page.getByRole('button', { name: '가상 바닥에 표시', exact: true })).toBeEnabled()
-  await page.getByRole('button', { name: '가상 바닥에 표시', exact: true }).click()
+  await expect(page.getByTestId('camera-stage')).toHaveAttribute('data-target-in-view', 'true')
   await page.getByRole('button', { name: '카메라 닫기' }).click()
   expect(
     JSON.parse(await page.evaluate(() => localStorage.getItem('booger-atlas:field-demo:v1')!))

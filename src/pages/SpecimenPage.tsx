@@ -89,10 +89,10 @@ export default function SpecimenPage({ id }: { id: string }) {
             <Link size={17} />
             {DEMO ? '이 브라우저용 링크 복사' : '이 코딱지 공유하기'}
           </button>
-          {s.status === 'alive' && (
+          {s.status === 'alive' && s.position && (
             <button className="outline" onClick={() => setCamera(true)}>
               <Camera size={17} />
-              가상 바닥에 미리보기
+              저장 위치를 카메라로 보기
             </button>
           )}
           {link && (
@@ -109,7 +109,8 @@ export default function SpecimenPage({ id }: { id: string }) {
             </label>
           )}
           <p className="field-hint">
-            미리보기는 방문 인증이나 같은 바닥의 복원이 아닙니다. 근처 발견은 GPS로 확인하세요.
+            카메라와 방향 센서를 허용한 뒤 주변을 비춰보세요. 저장 좌표 방향에 표시되며, GPS·나침반
+            오차가 있을 수 있습니다.
           </p>
         </div>
       </div>
@@ -159,6 +160,8 @@ export default function SpecimenPage({ id }: { id: string }) {
           <CameraStage
             traits={{ color: s.color, size: s.size, dryness: s.dryness }}
             discovery
+            target={s.position}
+            targetAccuracy={s.isOwner ? s.accuracyMeters : 500}
             onClose={() => setCamera(false)}
             onLanded={() => {}}
           />

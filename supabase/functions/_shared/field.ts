@@ -30,12 +30,15 @@ export interface FieldSpecimen extends Traits {
   publicLocation: boolean
   position: Position
   revision: number
+  accuracyMeters?: number
+  ownerHash?: string
 }
 export interface PublicSpecimen extends Omit<
   FieldSpecimen,
-  'position' | 'durability' | 'revision'
+  'position' | 'durability' | 'revision' | 'ownerHash'
 > {
   position: Position | null
+  isOwner?: boolean
   distanceMeters?: number
   bearingDegrees?: number
   events?: LifeEvent[]
@@ -98,7 +101,7 @@ export function move(p: Position, meters: number, bearing: number): Position {
     )
   return { latitude: newLat / rad, longitude: ((newLon / rad + 540) % 360) - 180 }
 }
-/** Snap before persistence; fine GPS is never stored in the observation or field tables. */
+/** Coarse public positions and legacy records. New consented GPS placements keep precision privately. */
 export function snap(p: Position, meters = POSITION_GRID_METERS): Position {
   const latStep = meters / 111320
   const latitude = Math.round(p.latitude / latStep) * latStep
@@ -112,6 +115,7 @@ export function publicSpecimen(
   s: FieldSpecimen,
   events?: LifeEvent[],
   viewer?: Position,
+  owner = false,
 ): PublicSpecimen {
   // Explicit allowlist. Do not spread private state into public API responses.
   return {
@@ -126,7 +130,8 @@ export function publicSpecimen(
     createdAt: s.createdAt,
     lastTick: s.lastTick,
     status: s.status,
-    position: s.publicLocation ? snap(s.position, PUBLIC_GRID_METERS) : null,
+    position: owner ? s.position : s.publicLocation ? snap(s.position, PUBLIC_GRID_METERS) : null,
+    ...(owner ? { isOwner: true, accuracyMeters: s.accuracyMeters } : {}),
     ...(viewer
       ? {
           distanceMeters: Math.round(distance(viewer, s.position) / 10) * 10,
@@ -139,7 +144,11 @@ export function publicSpecimen(
             at: e.at,
             type: e.type,
             description: e.description,
-            position: s.publicLocation && e.position ? snap(e.position, PUBLIC_GRID_METERS) : null,
+            position: owner
+              ? e.position
+              : s.publicLocation && e.position
+                ? snap(e.position, PUBLIC_GRID_METERS)
+                : null,
             ...(e.weather ? { weather: e.weather } : {}),
           })),
         }
@@ -154,6 +163,7 @@ export function createField(
   indoor: boolean,
   publicLocation: boolean,
   now = new Date(),
+  accuracyMeters?: number,
 ): FieldSpecimen {
   if (!validateTraits(traits) || !validPosition(position))
     throw new Error('표본 특징과 GPS 위치를 확인해 주세요.')
@@ -162,7 +172,8 @@ export function createField(
     ...traits,
     initialDryness: traits.dryness,
     region,
-    position: snap(position),
+    position: accuracyMeters === undefined ? snap(position) : { ...position },
+    ...(accuracyMeters === undefined ? {} : { accuracyMeters }),
     indoor,
     publicLocation,
     createdAt: now.toISOString(),

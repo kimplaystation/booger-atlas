@@ -43,12 +43,13 @@ export function saveFieldDemo(input: {
   traits: Traits
   region: Region
   position: Position
+  accuracy?: number
   indoor: boolean
   publicLocation: boolean
 }) {
   const data = readFieldDemo(),
     old = data.specimens.find((s) => s.id === input.id)
-  if (old) return publicSpecimen(old, data.events[old.id])
+  if (old) return publicSpecimen(old, data.events[old.id], undefined, true)
   if (data.specimens.filter((s) => Date.now() - Date.parse(s.createdAt) < 600000).length >= 5)
     throw Error('10분에 최대 5건까지 등록할 수 있습니다.')
   const s = createField(
@@ -58,6 +59,8 @@ export function saveFieldDemo(input: {
     input.position,
     input.indoor,
     input.publicLocation,
+    new Date(),
+    input.accuracy,
   )
   data.specimens.push(s)
   data.events[s.id] = [born(s)]
@@ -66,12 +69,12 @@ export function saveFieldDemo(input: {
   } catch {
     throw Error('저장 공간이 부족하거나 차단되어 GPS 표본을 저장하지 못했습니다.')
   }
-  return publicSpecimen(s, data.events[s.id])
+  return publicSpecimen(s, data.events[s.id], undefined, true)
 }
 export function nearbyDemo(position: Position, radius = DEFAULT_RADIUS) {
   const data = readFieldDemo()
   return data.specimens
     .filter((s) => s.status === 'alive' && distance(position, s.position) <= radius)
-    .map((s) => publicSpecimen(s, undefined, position))
+    .map((s) => publicSpecimen(s, undefined, position, true))
     .sort((a, b) => a.distanceMeters! - b.distanceMeters!)
 }

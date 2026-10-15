@@ -1,11 +1,14 @@
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Camera, Crosshair, MapPin } from 'lucide-react'
 import { COLORS, SIZES } from '../lib/domain'
 import type { Region } from '../lib/domain'
 import { DEMO, reverseRegion } from '../lib/api'
-import { nearbyField, saveField, lifeAge } from '../lib/fieldApi'
+import { nearbyField, saveField, lifeAge, worldField } from '../lib/fieldApi'
 import type { Position, PublicSpecimen, Traits } from '../lib/fieldApi'
+import { move } from '../../supabase/functions/_shared/field'
+import type { Placement } from '../ar/geo'
 import RegionPicker from '../components/RegionPicker'
+const FieldAtlas = lazy(() => import('../components/FieldAtlas'))
 const CameraStage = lazy(() => import('../ar/CameraStage'))
 export default function FieldPage({
   onRecord,
@@ -26,10 +29,26 @@ export default function FieldPage({
     [indoor, setIndoor] = useState(false),
     [publicLocation, setPublicLocation] = useState(false),
     [consent, setConsent] = useState(false),
-    [tab, setTab] = useState<'throw' | 'nearby'>('throw'),
+    [tab, setTab] = useState<'throw' | 'nearby' | 'mine'>('throw'),
     [nearby, setNearby] = useState<PublicSpecimen[] | null>(null),
     [radius, setRadius] = useState(30),
     [viewing, setViewing] = useState<PublicSpecimen | null>(null)
+  const [mine, setMine] = useState<PublicSpecimen[]>([])
+  const [mineError, setMineError] = useState('')
+  const placement = useRef<Placement | undefined>(undefined)
+  useEffect(() => {
+    let active = true
+    void worldField()
+      .then((rows) => {
+        if (active) setMine(rows.filter((s) => s.isOwner))
+      })
+      .catch((e) => {
+        if (active) setMineError(e instanceof Error ? e.message : '내 표본 조회 실패')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
   const started = useRef(Date.now()),
     inFlight = useRef(false),
     pending = useRef<Parameters<typeof saveField>[0] | null>(null)
@@ -103,20 +122,25 @@ export default function FieldPage({
         setError('튕기기와 GPS 확인, 위치 저장 동의를 완료해 주세요.')
         return
       }
-      if (Date.now() - fix.time > 60000) {
-        setError('GPS 확인 후 1분이 지났습니다. GPS를 다시 확인한 뒤 저장해 주세요.')
+      const savedFix = placement.current
+      if (!savedFix) {
+        setError('GPS 확인 후 카메라에서 다시 튕겨주세요. 튕길 때의 위치가 필요합니다.')
         return
       }
-      if (fix.accuracy > 100) {
-        setError('GPS 오차가 100m를 넘습니다. 더 정확한 위치를 확인한 뒤 저장해 주세요.')
+      if (Date.now() - savedFix.time > 60000) {
+        setError('튕긴 위치가 오래되었습니다. 카메라에서 다시 튕겨주세요.')
+        return
+      }
+      if (savedFix.accuracy > 100) {
+        setError('GPS 오차가 100m를 넘습니다. 더 정확한 위치에서 다시 튕겨주세요.')
         return
       }
       pending.current = {
         id: crypto.randomUUID(),
         traits,
         region,
-        position: fix.position,
-        accuracy: fix.accuracy,
+        position: savedFix.position,
+        accuracy: savedFix.accuracy,
         indoor,
         publicLocation,
         startedAt: started.current,
@@ -155,6 +179,16 @@ export default function FieldPage({
           </button>
           <button className={tab === 'nearby' ? 'selected' : ''} onClick={() => setTab('nearby')}>
             근처 발견
+          </button>
+          <button className={tab === 'mine' ? 'selected' : ''} onClick={() => setTab('mine')}>
+            내 코딱지
+          </button>
+          <button
+            onClick={() =>
+              document.getElementById('field-map')?.scrollIntoView({ behavior: 'smooth' })
+            }
+          >
+            지도·날씨
           </button>
         </div>
       </div>
@@ -285,8 +319,8 @@ export default function FieldPage({
                     checked={consent}
                     onChange={(e) => setConsent(e.target.checked)}
                   />
-                  GPS 주변 위치를 약 20m 단위로 저장하고, 가까운 방문자에게 표본과 대략적 거리를
-                  보여주는 데 동의합니다.
+                  GPS 주변 위치를 반올림 없이 비공개 저장하여 내 표본을 다시 찾고, 가까운 방문자에게
+                  대략적 거리·방향을 보여주는 데 동의합니다.
                 </label>
               </fieldset>
               <div className="field-primary-actions">
@@ -303,7 +337,14 @@ export default function FieldPage({
                 </button>
                 <button
                   className="outline"
-                  disabled={saving || !landed || !fix || !region || !consent || fix.accuracy > 100}
+                  disabled={
+                    saving ||
+                    !landed ||
+                    !fix ||
+                    !region ||
+                    !consent ||
+                    (placement.current?.accuracy ?? fix.accuracy) > 100
+                  }
                   onClick={() => void save()}
                 >
                   {saving
@@ -325,6 +366,31 @@ export default function FieldPage({
                 </p>
               )}
             </>
+          ) : tab === 'mine' ? (
+            <div className="nearby-results">
+              <h2>내가 던진 코딱지</h2>
+              <p className="field-hint">
+                같은 브라우저에서 다시 찾을 수 있습니다. 표본을 누르면 저장 위치와 카메라 보기가
+                열립니다.
+              </p>
+              {mineError && <p role="alert">{mineError}</p>}
+              {!mineError && mine.length === 0 && <p>아직 저장한 코딱지가 없습니다.</p>}
+              {mine.map((s) => (
+                <article key={s.id}>
+                  <div>
+                    <strong>
+                      {s.region.name} · {COLORS.find((c) => c.id === s.color)?.label}
+                    </strong>
+                    <p>
+                      {s.status === 'alive' ? '생존' : '소멸'} · {lifeAge(s)}
+                    </p>
+                    <button className="text-button" onClick={() => onDetail(s.id)}>
+                      저장 위치 다시 보기
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
           ) : (
             <div className="nearby-results">
               <h2>약 {radius}m 안의 살아 있는 표본</h2>
@@ -373,16 +439,17 @@ export default function FieldPage({
         </div>
         <aside className="field-guide">
           <h2>
-            정확한 바닥 지점보다,
+            던진 위치로 돌아가,
             <br />
-            같은 동네에서 만나는 재미.
+            카메라로 다시 찾아보세요.
           </h2>
           <p>
-            카메라 오버레이에서는 가까운 가상 바닥에 표시합니다. WebXR을 지원하면 현재 세션에서 평면
-            인식을 시도할 수 있습니다.
+            내 코딱지에서 표본을 선택하고 카메라와 방향 센서를 허용하세요. 휴대폰을 돌리면 저장된
+            GPS 방향에 코딱지가 나타납니다.
           </p>
           <p>
-            카메라의 착탄점과 GPS는 별개입니다. 다시 방문해도 똑같은 바닥 지점에 복원되지 않습니다.
+            지도에서 저장 위치와 GPS 오차를 함께 확인할 수 있습니다. 바닥 높이는 가정하며 GPS·나침반
+            오차 때문에 실제 한 점에 완전히 고정되지는 않습니다.
           </p>
           <div className="notice">
             {DEMO
@@ -390,8 +457,8 @@ export default function FieldPage({
               : '공동 모드: 등록 후 가까운 방문자가 발견할 수 있습니다. 공개 지도 위치는 기본적으로 숨깁니다.'}
           </div>
           <p>
-            위치 반올림만으로 장소가 완전히 익명화되지는 않습니다. 집 등 민감한 곳의 표본은 등록하지
-            않는 편이 좋습니다.
+            내 상세 좌표는 이 브라우저에서만 확인할 수 있습니다. 공유 링크에는 상세 좌표나 위치
+            접근키를 넣지 않습니다.
           </p>
           <button className="text-button" onClick={onRecord}>
             GPS 없이 지역별 표본 기록하기
@@ -403,6 +470,11 @@ export default function FieldPage({
           </a>
         </aside>
       </div>
+      <div id="field-map">
+        <Suspense fallback={<p>지도와 기상 준비 중…</p>}>
+          <FieldAtlas current={fix} />
+        </Suspense>
+      </div>
       {camera && (
         <Suspense fallback={<p role="status">카메라를 준비하고 있습니다…</p>}>
           <CameraStage
@@ -412,11 +484,25 @@ export default function FieldPage({
                 : traits
             }
             discovery={!!viewing}
-            approxBearing={viewing?.bearingDegrees}
+            initialFix={fix}
+            target={
+              viewing?.isOwner
+                ? viewing.position
+                : viewing &&
+                    fix &&
+                    viewing.bearingDegrees !== undefined &&
+                    viewing.distanceMeters !== undefined
+                  ? move(fix.position, viewing.distanceMeters, viewing.bearingDegrees)
+                  : viewing?.position
+            }
+            targetAccuracy={viewing?.isOwner ? viewing.accuracyMeters : 30}
             onClose={() => setCamera(false)}
-            onLanded={() => {
-              if (!viewing) setLanded(true)
-              setTimeout(() => setCamera(false), 900)
+            onLanded={(p) => {
+              if (!viewing) {
+                placement.current = p
+                setLanded(true)
+                setTimeout(() => setCamera(false), 900)
+              }
             }}
           />
         </Suspense>

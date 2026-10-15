@@ -1,3 +1,4 @@
+import { hashOwnerKey, isOwner, validOwnerKey } from '../_shared/ownership.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
 import {
   born,
@@ -215,6 +216,7 @@ Deno.serve(async (request) => {
     if (b.action === 'create') {
       if (
         !uuid(b.id) ||
+        !validOwnerKey(b.ownerKey) ||
         !validateTraits(b.traits) ||
         !validPosition(b.position) ||
         !Number.isFinite(b.accuracy) ||
@@ -236,15 +238,44 @@ Deno.serve(async (request) => {
         .eq('id', b.id)
         .maybeSingle()
       ensure(old)
-      if (old.data) return json(publicSpecimen(old.data.state), 200, origin)
+      if (old.data)
+        return json(
+          publicSpecimen(
+            old.data.state,
+            undefined,
+            undefined,
+            await isOwner(old.data.state, b.ownerKey),
+          ),
+          200,
+          origin,
+        )
       await rate(`field:create:${client}`, 5, 600)
       await rate(`field:create-day:${client}`, 30, 86400)
       const r = await region(b.regionId)
-      // A client GPS cannot be authenticated by a browser; rate limits and coarse storage minimize misuse.
-      const s = createField(b.id, b.traits, r, b.position, b.indoor, b.publicLocation)
+      // Precise private state is returned only to the creator capability. Public serialization stays coarse.
+      const s = createField(
+        b.id,
+        b.traits,
+        r,
+        b.position,
+        b.indoor,
+        b.publicLocation,
+        new Date(),
+        b.accuracy,
+      )
+      s.ownerHash = await hashOwnerKey(b.ownerKey)
       const saved = await db.rpc('atlas_field_create', { p_state: s, p_event: born(s) })
       ensure(saved)
-      return json(publicSpecimen(saved.data, [born(saved.data)]), 200, origin)
+      return json(
+        publicSpecimen(
+          saved.data,
+          [born(saved.data)],
+          undefined,
+          await isOwner(saved.data, b.ownerKey),
+        ),
+        200,
+        origin,
+      )
     }
     if (b.action === 'detail') {
       if (!uuid(b.id)) throw new Failure(400, '표본 링크를 확인해 주세요.')
@@ -266,6 +297,8 @@ Deno.serve(async (request) => {
         publicSpecimen(
           result.data.state,
           (events.data || []).reverse().map((e) => e.event as LifeEvent),
+          undefined,
+          await isOwner(result.data.state, b.ownerKey),
         ),
         200,
         origin,
@@ -285,10 +318,15 @@ Deno.serve(async (request) => {
         return json(
           {
             radius,
-            specimens: (result.data as FieldSpecimen[])
-              .slice(0, 100)
-              .map((s) => publicSpecimen(s, undefined, b.position))
-              .sort((a, b) => a.distanceMeters! - b.distanceMeters!),
+            specimens: (
+              await Promise.all(
+                (result.data as FieldSpecimen[])
+                  .slice(0, 100)
+                  .map(async (s) =>
+                    publicSpecimen(s, undefined, b.position, await isOwner(s, b.ownerKeys?.[s.id])),
+                  ),
+              )
+            ).sort((a, b) => a.distanceMeters! - b.distanceMeters!),
           },
           200,
           origin,
@@ -302,7 +340,16 @@ Deno.serve(async (request) => {
         .limit(500)
       ensure(result)
       return json(
-        (result.data || []).map((r) => publicSpecimen(r.state as FieldSpecimen)),
+        await Promise.all(
+          (result.data || []).map(async (r) =>
+            publicSpecimen(
+              r.state as FieldSpecimen,
+              undefined,
+              undefined,
+              await isOwner(r.state, b.ownerKeys?.[r.state.id]),
+            ),
+          ),
+        ),
         200,
         origin,
       )

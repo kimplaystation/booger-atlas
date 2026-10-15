@@ -504,3 +504,66 @@
     font-size: 14px;
   }
 }
+/* Map and real weather share the same viewport. */
+.weather-map {
+  position: relative;
+  margin-top: 14px;
+}
+.field-leaflet {
+  height: 450px;
+}
+.map-weather {
+  position: absolute;
+  z-index: 450;
+  top: 12px;
+  right: 10px;
+  max-width: calc(100% - 65px);
+  padding: 12px 14px;
+  border: 1px solid #c8d1bf;
+  border-radius: 9px;
+  background: #fffffff2;
+  box-shadow: 0 3px 15px #19341d18;
+  color: #31452b;
+  font-size: 12px;
+  line-height: 1.7;
+  pointer-events: none;
+}
+.map-weather strong {
+  display: block;
+  font-size: 17px;
+}
+.map-weather small {
+  display: block;
+  font-size: 10px;
+  color: #6c7f65;
+  margin-top: 4px;
+}
+.map-weather p {
+  margin: 4px 0;
+}
+.map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.saved-coordinate {
+  font-size: 12px;
+  color: #465e37;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 650px) {
+  .field-tabs button {
+    padding: 12px 7px;
+    font-size: 12px;
+  }
+  .field-leaflet {
+    height: 420px;
+  }
+  .map-weather {
+    padding: 9px 11px;
+    font-size: 11px;
+  }
+  .map-weather strong {
+    font-size: 15px;
+  }
+}
