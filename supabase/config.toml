@@ -1,0 +1,5 @@
+project_id = "booger-atlas"
+
+[functions.atlas]
+verify_jwt = false
+# Anonymous endpoint; strict server validation, rate limits and RLS are applied inside.
